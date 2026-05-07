@@ -52,21 +52,27 @@ AI 输出摘要： 输出了基于 If-Else 的关键词搜索逻辑以及 OpenAI
 
 1. Native 版：独立编写
 在不参考任何辅助工具的情况下，我需要查阅 Pandas 关于时间重采样和多列分组的文档。由于 2023 年的数据列名与往年略有差异，我花费了大量时间在核对字段含义上。编写过程大约耗时四十分钟，代码结构较为冗长，虽然运行稳定且逻辑完全可控，但在效率上明显处于劣势。
+```python
 df['pickup_date'] = df['tpep_pickup_datetime'].dt.date
 df['pickup_hour'] = df['tpep_pickup_datetime'].dt.hour
 temp_df = df[['pickup_date', 'pickup_hour', 'PULocationID']]
 agg_df = temp_df.groupby(['pickup_date', 'pickup_hour', 'PULocationID']).size().reset_index()
 agg_df = agg_df.rename(columns={0: 'demand'})
+```
 2. Prompt 版：AI 辅助
 我直接向 AI 描述了聚合目标。AI 在五秒内生成了完整的 Groupby 语句。然而，这段代码在运行时报错，原因是 AI 误用了旧版数据集中已经弃用的字段名。我通过手动修改列名解决了问题。这个阶段的总耗时缩短到了十分钟。虽然速度提升明显，但我发现自己对代码中处理索引变换的部分理解不够深入，仅停留在调用层面。
+```python
 agg_df = df.groupby(['PULocationID', df['tpep_pickup_datetime'].dt.floor('H')]).size().reset_index(name='demand')
+```
 3. Vibe 版：对话驱动
 在这个阶段，我没有给出具体的编程指令，而是通过描述数据分析的业务目标，让 AI 在对话中不断优化逻辑。AI 自动意识到了需要处理缺失的时间片以防止预测失真，并主动提出了增加移动平均特征。我只需要在对话框中确认其逻辑方向。代码的生成和调优几乎是同步完成的，耗时不足五分钟。
+```python
 time_grid = pd.date_range(start=df['tpep_pickup_datetime'].min().floor('H'), end=df['tpep_pickup_datetime'].max().ceil('H'), freq='H')
 locations = df['PULocationID'].unique()
 full_idx = pd.MultiIndex.from_product([locations, time_grid], names=['PULocationID', 'tpep_pickup_datetime'])
 agg_df = df.groupby(['PULocationID', df['tpep_pickup_datetime'].dt.floor('H')]).size().reindex(full_idx, fill_value=0).reset_index(name='demand')
 agg_df['demand_ma_3h'] = agg_df.groupby('PULocationID')['demand'].transform(lambda x: x.rolling(3, min_periods=1).mean())
+```
 4. 效率与深度分析
 从 Native 到 Vibe，开发效率呈现指数级增长。然而在理解深度上，Native 版要求开发者对每一行代码负责，理解最透彻，功能实现最稳定。Prompt 版最容易导致思维惰性，开发者往往会忽略潜在的逻辑漏洞，如果使用性能强的AI，可能会在prompt迭代中发现自身问题，不过如果AI与开发者都丧失了全局注意力就有很大风险。Vibe 版则对开发者提出了更高的要求，即必须具备全局逻辑审美和纠偏能力，否则会完全被 AI 带偏，不过此时开发者就可更注重于架构的构建与实现，而且试错成本降低很多。
 
