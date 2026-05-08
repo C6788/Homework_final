@@ -5,7 +5,7 @@ from openai import OpenAI
 # ==========================================
 # 0. DeepSeek API 配置
 # ==========================================
-API_KEY = "sk-870d69899d2342d7a37494091da981f3"
+API_KEY = "功能已展示，api密钥为了安全不上传"
 BASE_URL = "https://api.deepseek.com"  # DeepSeek 官方 API 地址
 
 # 初始化客户端
